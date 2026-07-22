@@ -1,0 +1,15 @@
+# Terraform provider plugin cache (downloaded binaries)
+.terraform/
+
+# Crash/state artifacts
+crash.log
+terraform.tfstate
+terraform.tfstate.*
+*.backup
+
+# Local override files (keep nonprod.tfvars committed as a sample only if desired)
+# *.tfvars
+!nonprod.tfvars
+
+# OS files
+.DS_Store

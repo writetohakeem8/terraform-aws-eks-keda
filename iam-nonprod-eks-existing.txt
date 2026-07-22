@@ -1,0 +1,64 @@
+================================================================
+IAM PERMISSIONS — MODE A (create_eks = false, existing cluster)
+The Terraform-running principal needs BOTH layers below.
+================================================================
+
+LAYER 1 — AWS IAM policy (attach to the user/role that runs terraform)
+----------------------------------------------------------------------
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadEksClusterAndToken",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "eks:GetToken"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+LAYER 2 — Kubernetes RBAC (apply to the cluster; this is what actually
+lets KEDA install CRDs + workloads). Save as keda-rbac.yaml and run:
+  kubectl apply -f keda-rbac.yaml
+----------------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: terraform-deployer
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: terraform-deployer
+rules:
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: terraform-deployer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: terraform-deployer
+subjects:
+  - kind: User
+    name: <YOUR-IAM-ARN>   # e.g. arn:aws:iam::123456789012:user/terraform-user
+  - kind: ServiceAccount
+    name: terraform-deployer
+    namespace: kube-system
+
+NOTE: The IAM identity must ALSO be in the cluster's aws-auth ConfigMap
+(usually done by an admin):
+  kubectl edit configmap aws-auth -n kube-system
+  # add under mapUsers:
+  # - userarn: <YOUR-IAM-ARN>
+  #   username: <YOUR-IAM-ARN>
+  #   groups: ["system:masters"]

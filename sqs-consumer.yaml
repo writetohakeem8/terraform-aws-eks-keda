@@ -1,0 +1,47 @@
+# Sample SQS consumer Deployment that KEDA scales.
+# Apply manually AFTER terraform apply, or include in your Helm chart:
+#   kubectl apply -f sqs-consumer.yaml
+#
+# NOTE: the pod needs IAM permissions to read the SQS queue (IRSA).
+# Attach policy AmazonSQSReadOnlyAccess (or a scoped policy) to the pod's role.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqs-consumer
+  namespace: keda
+  labels:
+    app: sqs-consumer
+spec:
+  replicas: 0   # KEDA will scale this up from 0 based on queue depth
+  selector:
+    matchLabels:
+      app: sqs-consumer
+  template:
+    metadata:
+      labels:
+        app: sqs-consumer
+    spec:
+      serviceAccountName: sqs-consumer   # IRSA SA with SQS read access
+      containers:
+        - name: consumer
+          image: public.ecr.aws/docker/library/python:3.12-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install boto3 >/dev/null 2>&1
+              python - <<'PY'
+              import boto3, os, time
+              q = os.environ['QUEUE_URL']
+              sqs = boto3.client('sqs', region_name=os.environ['AWS_REGION'])
+              while True:
+                  m = sqs.receive_message(QueueUrl=q, MaxNumberOfMessages=10, WaitTimeSeconds=20)
+                  for msg in m.get('Messages', []):
+                      print("processing", msg['MessageId'])
+                      sqs.delete_message(QueueUrl=q, ReceiptHandle=msg['ReceiptHandle'])
+                  time.sleep(1)
+              PY
+          env:
+            - name: QUEUE_URL
+              value: "https://sqs.us-east-1.amazonaws.com/REPLACE-ME/your-queue"
+            - name: AWS_REGION
+              value: "us-east-1"

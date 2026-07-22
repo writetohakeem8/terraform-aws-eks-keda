@@ -1,0 +1,80 @@
+================================================================
+IAM PERMISSIONS — MODE B (create_eks = true, Terraform builds cluster)
+Everything in MODE A LAYER 1 + 2, PLUS the AWS IAM below.
+================================================================
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EksFull",
+      "Effect": "Allow",
+      "Action": [
+        "eks:CreateCluster",
+        "eks:DeleteCluster",
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "eks:GetToken",
+        "eks:UpdateClusterConfig",
+        "eks:CreateNodegroup",
+        "eks:DeleteNodegroup",
+        "eks:DescribeNodegroup",
+        "eks:ListNodegroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamForEksRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:TagRole"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2NetworkForNodegroup",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:CreateSecurityGroup",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:DeleteSecurityGroup",
+        "ec2:DescribeRouteTables"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+
+================================================================
+IAM PERMISSIONS — MODE C (SQS scaling: the CONSUMER POD's role, not terraform)
+Attach to the IRSA role used by sqs-consumer.yaml serviceAccount.
+================================================================
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "SqsConsumerRead",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ChangeMessageVisibility"
+      ],
+      "Resource": "arn:aws:sqs:*:*:<YOUR-QUEUE-NAME>"
+    }
+  ]
+}
